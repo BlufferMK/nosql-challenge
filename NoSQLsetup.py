@@ -1,23 +1,31 @@
-## Part 1: Database and Jupyter Notebook Set Up
 
-# Import the dataset with  
+# Import the data provided in the `establishments.json` file from your Terminal. Name the database `uk_food` and the collection `establishments`.
+# 
+# e.g.: Import the dataset with  
+# 
 # 'mongoimport --type json -d uk_food -c establishments --drop --jsonArray establishments.json'
+# 
 
 # Import dependencies
 from pymongo import MongoClient
 from pprint import pprint
 
+
 # Create an instance of MongoClient
 mongo = MongoClient(port=27017)
 
+
 # confirm that our new database was created
+
 print(mongo.list_database_names())
 
 # assign the uk_food database to a variable name
 db = mongo.uk_food
 
+
 # review the collections in our new database
 print(db.list_collection_names())
+
 
 # review the collections in our new database
 limit = 5
@@ -30,13 +38,16 @@ pprint(list(records))
 records = db.establishments.find_one({'AddressLine3':'London'})
 pprint(records)
 
-# assign the collection to a variable named 'establishments'
+
+# assign the collection to a variable
 establishments = db['establishments']
 
 
-## Part 2: Update the Database
+#  Part 2: Update the Database
 
-# Add the restaurant "Penang Flavours" to the database.
+#  An exciting new halal restaurant just opened in Greenwich, but hasn't been rated yet. The magazine has asked you to include it in your analysis. 
+#  Add the following restaurant "Penang Flavours" to the database.
+
 
 # Create a dictionary for the new restaurant data
 Penang = {
@@ -72,36 +83,43 @@ Penang = {
 # Insert the new restaurant into the collection
 db.establishments.insert_one(Penang)
 
+
 # Check that the new restaurant was inserted
 query = {"BusinessName":"Penang Flavours"} 
-results = establishments.find(query)
-for result in results:
-    print(result)
+results = establishments.find_one(query)
+#for result in results:
+pprint(results)
+
 
 # Find the BusinessTypeID for "Restaurant/Cafe/Canteen" and return only the BusinessTypeID and BusinessType fields
-query = {"BusinessTypeID": {"$eq" :1}}
+query = {'BusinessType': 'Restaurant/Cafe/Canteen'}
 fields = {"BusinessType":1,"BusinessTypeID": 1}
-limit = 5
 
-results = establishments.find(query,fields).limit(limit)
+results = establishments.find_one(query,projection = fields)
 
-pprint(list(results))
+pprint(results)
+
+
+# Update the new restaurant with the `BusinessTypeID` .
 
 
 # Update the new restaurant with the correct BusinessTypeID
 filter = {"BusinessName":"Penang Flavours"}
-newvalues = {"$set": {"BusinessTypeID": 1 }}
+newvalues = {"$set": {"BusinessTypeID": 1 }
+                                            }
 
 establishments.update_one(filter, newvalues)
 
+
 # Confirm that the new restaurant was updated
 query = {"BusinessName":"Penang Flavours"} 
-results = establishments.find(query)
-for result in results:
-    print(result)
+results = establishments.find_one(query)
+
+pprint(results)
 
 
-# Remove any establishments within the Dover Local Authority from the database.
+# Check how many documents contain the Dover Local Authority. Then, remove any establishments within the Dover Local Authority from the database, and check the number of documents to ensure they were deleted.
+
 
 # Find how many documents have LocalAuthorityName as "Dover"
 query = {'LocalAuthorityName': 'Dover'}
@@ -110,39 +128,44 @@ doc_count = db.establishments.count_documents(query)
 
 print(doc_count)
 
+
 # Delete all documents where LocalAuthorityName is "Dover"
 db.establishments.delete_many(query)
 
+
 # Check if any remaining documents include Dover
-results = establishments.find(query)
+query = {'LocalAuthorityName': 'Dover'}
 
-pprint(list(results))
+doc_count = db.establishments.count_documents(query)
 
-# Check that other documents remain 
+print(doc_count)
+
+
+# Check that other documents remain
 records = db.establishments.find_one({'AddressLine3':'London'})
 pprint(records)
 
 
-# Convert `latitude` and `longitude` to decimal numbers.
 
 # Change the data type from String to Decimal for longitude and latitude
 new_values = [
     {'$set':{
         'geocode.latitude':
-        {'$toDouble':"$geocode.latitude"}}}]
+        {'$toDecimal':"$geocode.latitude"}}}]
 db.establishments.update_many({}, new_values)
 
 new_values = [
     {'$set':{
         'geocode.longitude':
-        {'$toDouble':"$geocode.longitude"}}}]
+        {'$toDecimal':"$geocode.longitude"}}}]
 db.establishments.update_many({}, new_values)
 
-# Convert `RatingValue` to integer numbers.
+
 
 # Set non 1-5 Rating Values to Null
 non_ratings = ["AwaitingInspection", "Awaiting Inspection", "AwaitingPublication", "Pass", "Exempt"]
 establishments.update_many({"RatingValue": {"$in": non_ratings}}, [ {'$set':{ "RatingValue" : None}} ])
+
 
 # Change the data type from String to Integer for RatingValue
 new_values = [
@@ -150,6 +173,7 @@ new_values = [
         'RatingValue':
         {'$toInt':"$RatingValue"}}}]
 db.establishments.update_many({}, new_values)
+
 
 # Check that the coordinates and rating value are now numbers
 records = db.establishments.find_one()
